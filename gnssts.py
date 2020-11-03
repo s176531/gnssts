@@ -178,6 +178,7 @@ def find_avg_signal(data, stations):
 if __name__ == "__main__":
 
     files = Path(r"data/GPS").glob("*.txt")
+    Path("out").mkdir(exist_ok=True)
     data = {}
     for filename in files:
         ts, station = load_gps(filename)
