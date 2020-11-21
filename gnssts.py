@@ -99,38 +99,33 @@ def plot_up(station, t, u, noise_func, N=1):
     print(f"{station}  {silent_gradient:.2f} mm/yr +/- {silent_stderr:.2f} mm/yr")
 
 
-def load_neu(filename):
-    with open(filename, "r") as f:
-        timeseries = f.readlines()
-
-    ts = np.loadtxt(
-        timeseries,
-        comments="%",
-        dtype={
-            "names": ("year", "N", "N_e", "E", "E_e", "U", "U_e"),
-            "formats": ("f4", "f4", "f4", "f4", "f4", "f4", "f4"),
-        },
-    )
-
-    return ts
-
-
-def load_gps(filename: Path):
+def load_data(filename: Path):
 
     with open(filename, "r") as f:
         timeseries = f.readlines()
 
-    ts = np.loadtxt(
-        timeseries,
-        comments="%",
-        dtype={"names": ("year", "U", "U_e"), "formats": ("f4", "f4", "f4")},
-    )
+    try: # Is the data in NEU format?
+        ts = np.loadtxt(
+            timeseries,
+            comments="%",
+            dtype={
+                "names": ("year", "N", "N_e", "E", "E_e", "U", "U_e"),
+                "formats": ("f4", "f4", "f4", "f4", "f4", "f4", "f4"),
+            },
+        )
+    except IndexError: # ... or in year/up format?
+        ts = np.loadtxt(
+            timeseries,
+            comments="%",
+            dtype={"names": ("year", "U", "U_e"), "formats": ("f4", "f4", "f4")},
+        )
+
     gradient, intercept, r_value, p_value, std_err = stats.linregress(
         ts["year"], ts["U"]
     )
     offset = gradient * ts["year"][0] + intercept
     ts["U"] = ts["U"] - offset
-    return ts, filename.stem
+    return ts, filename.stem[0:4]
 
 
 def detrend(t, u):
@@ -177,11 +172,11 @@ def find_avg_signal(data, stations):
 
 if __name__ == "__main__":
 
-    files = Path(r"data/GPS").glob("*.txt")
+    files = Path(r"data/NEU").glob("*.txt")
     Path("out").mkdir(exist_ok=True)
     data = {}
     for filename in files:
-        ts, station = load_gps(filename)
+        ts, station = load_data(filename)
         data[station] = ts
 
     noise_func = find_avg_signal(data, ("BUDP", "SMID", "SULD"))
