@@ -1,7 +1,6 @@
 name: gnssts
 channels:
   - conda-forge
-  - defaults
 dependencies:
   - matplotlib
   - numpy
