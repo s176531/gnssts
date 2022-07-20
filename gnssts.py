@@ -20,8 +20,74 @@ plt.rc("ytick", labelsize=SMALL_SIZE)  # fontsize of the tick labels
 plt.rc("legend", fontsize=SMALL_SIZE)  # legend fontsize
 plt.rc("figure", titlesize=BIGGER_SIZE)  # fontsize of the figure title
 
+def plot_sample(station, t, u, intervals=4, samples=100, criterion=1):
+    
+    u_gradient, u_intercept, _, _, _ = stats.linregress(t, u)
+    sample_fit,sample_gradient,sample_intercept=[],[],[]
+    for _ in range(samples):
+        sample = sample_data(data[station],intervals)
+        gradient, intercept, _, _, _ = stats.linregress(
+            sample["year"], sample["U"]
+        )
+        sample_fit.append(t*gradient + intercept)
+        sample_gradient.append(gradient)
+        sample_intercept.append(intercept)
+    mean,std = base_stats(sample_fit)
+    dif=np.abs(sample_gradient-u_gradient)
+    max = np.argmax(dif)
+    N_above = np.sum(dif>criterion)
 
-def plot_up(station, t, u, noise_func, N=1, intervals=4, samples=100):
+    plt.figure(figsize=(14,8))
+    plt.title(f"{station} {N_above/len(sample_gradient):.2f}% samples above gradient difference criterion of {criterion:.1f} mm/yr")
+    plt.plot(
+        t,
+        u,
+        ".",
+        markersize=2,
+        linewidth=0.25,
+        color="lightsalmon",
+        label="Data points",
+    )
+    plt.plot(
+        t,
+        mean,
+        "--",
+        linewidth=1.5,
+        color="indigo",
+        label=f"Sample mean ({samples} samples)"
+    )
+    plt.plot(
+        t,
+        mean-2*std,
+        "--",
+        linewidth=1,
+        color="darkorchid",
+        label="Sample std"
+    )
+    plt.plot(
+        t,
+        mean+2*std,
+        "--",
+        linewidth=1,
+        color="darkorchid",
+    )
+    plt.plot(
+        t,
+        sample_fit[max],
+        color="lightskyblue",
+        label="Biggest outlier sample"
+    )
+
+    plt.grid()
+    plt.xlabel("Time [year]", fontsize=12)
+    plt.ylabel("Up [mm]", fontsize=12)
+    plt.xlim([2002, 2020])
+    plt.ylim([-20, 40])
+    plt.legend(loc="lower right")
+    print(f"{station} {N_above/len(sample_gradient):.2f}% above criterion of {criterion:.1f} mm/yr")
+
+
+def plot_up(station, t, u, noise_func, N=1):
 
     silent = u - noise_func(t)
 
@@ -34,18 +100,8 @@ def plot_up(station, t, u, noise_func, N=1, intervals=4, samples=100):
     )
     u_fit = u_gradient * t + u_intercept
     silent_fit = silent_gradient * t + silent_intercept
-    
-    sample_fit=[]
-    for _ in range(samples):
-        sample = sample_data(data[station],intervals)
-        sample_gradient, sample_intercept, sample_r, sample_p, sample_stderr = stats.linregress(
-            sample["year"], sample["U"]
-        )
-        sample_fit.append(t*sample_gradient + sample_intercept)
-    mean,std = base_stats(sample_fit)
 
-    fig = plt.figure(figsize=(14, 8))
-
+    plt.figure(figsize=(14,8))
     plt.title(station)
     plt.plot(
         t,
@@ -97,29 +153,6 @@ def plot_up(station, t, u, noise_func, N=1, intervals=4, samples=100):
         linewidth=1.5,
         color="navy",
         label=f"Linear fit, de-noised, {silent_gradient:.2f} mm/yr, r={silent_r:.2f}, std_dev={silent_stderr:.2f}",
-    )
-    plt.plot(
-        t,
-        mean,
-        "--",
-        linewidth=1.5,
-        color="indigo",
-        label=f"Sample mean ({samples} samples)"
-    )
-    plt.plot(
-        t,
-        mean-std,
-        "--",
-        linewidth=1,
-        color="darkorchid",
-        label="Sample std"
-    )
-    plt.plot(
-        t,
-        mean+std,
-        "--",
-        linewidth=1,
-        color="darkorchid",
     )
 
     plt.grid()
@@ -238,9 +271,11 @@ if __name__ == "__main__":
     for station in data:
         u = data[station]["U"]
         t = data[station]["year"]
-        plot_up(station, t, u, noise_func, N=30, intervals=4, samples=1000)
+        plot_up(station, t, u, noise_func, N=30)
         plt.savefig(Path("out") / Path(f"{station}.png"), bbox_inches="tight")
 
+        plot_sample(station, t, u, intervals=4, samples=1000, criterion=1)
+        plt.savefig(Path("out") / Path(f"{station}_sampling.png"), bbox_inches="tight")
 
 
 
