@@ -21,7 +21,7 @@ plt.rc("legend", fontsize=SMALL_SIZE)  # legend fontsize
 plt.rc("figure", titlesize=BIGGER_SIZE)  # fontsize of the figure title
 
 
-def plot_up(station, t, u, noise_func, N=1):
+def plot_up(station, t, u, noise_func, N=1, intervals=4, samples=100):
 
     silent = u - noise_func(t)
 
@@ -34,6 +34,15 @@ def plot_up(station, t, u, noise_func, N=1):
     )
     u_fit = u_gradient * t + u_intercept
     silent_fit = silent_gradient * t + silent_intercept
+    
+    sample_fit=[]
+    for _ in range(samples):
+        sample = sample_data(data[station],intervals)
+        sample_gradient, sample_intercept, sample_r, sample_p, sample_stderr = stats.linregress(
+            sample["year"], sample["U"]
+        )
+        sample_fit.append(t*sample_gradient + sample_intercept)
+    mean,std = base_stats(sample_fit)
 
     fig = plt.figure(figsize=(14, 8))
 
@@ -89,6 +98,29 @@ def plot_up(station, t, u, noise_func, N=1):
         color="navy",
         label=f"Linear fit, de-noised, {silent_gradient:.2f} mm/yr, r={silent_r:.2f}, std_dev={silent_stderr:.2f}",
     )
+    plt.plot(
+        t,
+        mean,
+        "--",
+        linewidth=1.5,
+        color="indigo",
+        label=f"Sample mean ({samples} samples)"
+    )
+    plt.plot(
+        t,
+        mean-std,
+        "--",
+        linewidth=1,
+        color="darkorchid",
+        label="Sample std"
+    )
+    plt.plot(
+        t,
+        mean+std,
+        "--",
+        linewidth=1,
+        color="darkorchid",
+    )
 
     plt.grid()
     plt.xlabel("Time [year]", fontsize=12)
@@ -113,7 +145,7 @@ def load_data(filename: Path):
                 "formats": ("f4", "f4", "f4", "f4", "f4", "f4", "f4"),
             },
         )
-    except IndexError: # ... or in year/up format?
+    except (IndexError, ValueError): # ... or in year/up format?
         ts = np.loadtxt(
             timeseries,
             comments="%",
@@ -169,10 +201,24 @@ def find_avg_signal(data, stations):
         t, ts_avg, bounds_error=False, fill_value=(ts_avg[0], ts_avg[-1])
     )
 
+def sample_data(data, N):
+    """
+    Opdel data i N tidsintervaller og sample et punkt fra hvert interval
+    """
+    sample = []
+    for subdata in np.array_split(data,N):
+        sample.append(np.random.choice(subdata))
+    return np.array(sample)
+
+def base_stats(fit):
+    fit = np.array(fit)
+    mean = fit.mean(axis=0)
+    std = fit.std(axis=0)
+    return mean,std
 
 if __name__ == "__main__":
 
-    files = Path(r"data/NEU").glob("*.txt")
+    files = Path(r"data/GPS").glob("*.txt")
     Path("out").mkdir(exist_ok=True)
     data = {}
     for filename in files:
@@ -192,7 +238,7 @@ if __name__ == "__main__":
     for station in data:
         u = data[station]["U"]
         t = data[station]["year"]
-        plot_up(station, t, u, noise_func, N=30)
+        plot_up(station, t, u, noise_func, N=30, intervals=4, samples=1000)
         plt.savefig(Path("out") / Path(f"{station}.png"), bbox_inches="tight")
 
 
