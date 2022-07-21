@@ -1,9 +1,7 @@
-import sys
 from pathlib import Path
-
 import numpy as np
-import matplotlib
 import matplotlib.pyplot as plt
+import matplotlib as mpl
 from scipy import stats
 from scipy import interpolate
 
@@ -32,7 +30,15 @@ def plot_sample(station, t, u, intervals=4, samples=100, criterion=1):
         sample_fit.append(t*gradient + intercept)
         sample_gradient.append(gradient)
         sample_intercept.append(intercept)
-    mean,std = base_stats(sample_fit)
+    
+    alpha=0.99
+    mean,std,ci_lower,ci_upper = base_stats(
+        sample_fit,
+        samples,
+        alpha=alpha,
+        distribution=0
+    )
+
     dif=np.abs(sample_gradient-u_gradient)
     max = np.argmax(dif)
     N_above = np.sum(dif>criterion)
@@ -58,18 +64,33 @@ def plot_sample(station, t, u, intervals=4, samples=100, criterion=1):
     )
     plt.plot(
         t,
-        mean-2*std,
+        ci_lower,
         "--",
         linewidth=1,
         color="darkorchid",
-        label="Sample std"
+        label=f"Gaussian {100*alpha:.2f}% confidence interval"
+    )
+    plt.plot(
+        t,
+        ci_upper,
+        "--",
+        linewidth=1,
+        color="darkorchid",
+    )
+    plt.plot(
+        t,
+        mean-2*std,
+        "--",
+        linewidth=1,
+        color="orchid",
+        label="2*sample std"
     )
     plt.plot(
         t,
         mean+2*std,
         "--",
         linewidth=1,
-        color="darkorchid",
+        color="orchid",
     )
     plt.plot(
         t,
@@ -77,6 +98,7 @@ def plot_sample(station, t, u, intervals=4, samples=100, criterion=1):
         color="lightskyblue",
         label="Biggest outlier sample"
     )
+    
 
     plt.grid()
     plt.xlabel("Time [year]", fontsize=12)
@@ -243,11 +265,22 @@ def sample_data(data, N):
         sample.append(np.random.choice(subdata))
     return np.array(sample)
 
-def base_stats(fit):
+def base_stats(fit, N_samples, alpha=0.95, distribution=0):
     fit = np.array(fit)
     mean = fit.mean(axis=0)
     std = fit.std(axis=0)
-    return mean,std
+
+    if distribution == 0: # Gaussian
+        t = stats.t.ppf(1-alpha/2, N_samples)
+        ci_lower = mean - t*std/np.sqrt(N_samples)
+        ci_upper = mean + t*std/np.sqrt(N_samples)
+    elif distribution == 1: # Laplacian
+        median = np.median(fit,axis=0)
+        decay = np.mean(np.abs(fit-median))
+        exp = stats.expon.ppf(1-alpha,N_samples)
+        ci_lower = median-((N_samples-1)*decay / exp)
+        ci_upper = median+((N_samples-1)*decay / exp)
+    return mean,std,ci_lower,ci_upper
 
 if __name__ == "__main__":
 
@@ -267,7 +300,9 @@ if __name__ == "__main__":
             f.write("% Time [Year],    Uplift [mm]\n")
             for d in data[station]:
                 f.write(f"{d['year']:.8f}    {d['U']-noise_func(d['year']): .3f}\n")
-
+    
+    # plot timeseries
+    mpl.rc('figure', max_open_warning = 0)
     for station in data:
         u = data[station]["U"]
         t = data[station]["year"]
