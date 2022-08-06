@@ -134,17 +134,9 @@ def plot_intervals(station, t, u, intervals=np.arange(4,11,dtype=int), samples=1
             intv,
             alpha=alpha,
         )
-
-        meancol = (1-intv/20,intv/20,1-intv/20)
-        cicol = (1-intv/20,1-intv/20,intv/20)
-        plt.plot(
-            t,
-            mean,
-            "-",
-            linewidth=0.75,
-            color=meancol,
-            label=f"Sample mean ({intv} intervals/{samples} samples)"
-        )
+        denom = np.max(intervals)*1.1
+        cicol = (1-intv/denom,1-intv/denom,intv/denom)
+        
         plt.plot(
             t,
             ci_lower,
@@ -160,6 +152,15 @@ def plot_intervals(station, t, u, intervals=np.arange(4,11,dtype=int), samples=1
             linewidth=1,
             color=cicol,
         )
+
+    plt.plot(
+        t,
+        mean,
+        "-",
+        linewidth=0.75,
+        color="crimson",
+        label=f"Sample mean"
+    )
 
     plt.grid()
     plt.title(f"{(1-alpha)*100:.2f}% confidence intervals at {intervals[0:]} intervals in sampling")
@@ -255,6 +256,6 @@ if __name__ == "__main__":
         plot_sample(station, t, u, intervals=4, samples=1000, criterion=1, alpha=0.01)
         plt.savefig(Path("out/sampling/single") / Path(f"{station}_sampling.png"), bbox_inches="tight")
 
-        plot_intervals(station, t, u, intervals=np.arange(4,11,dtype=int), samples=1000, alpha=0.01)
+        plot_intervals(station, t, u, intervals=np.arange(3,16,dtype=int), samples=1000, alpha=0.01)
         plt.savefig(Path("out/sampling/multiple") / Path(f"{station}_variable_interval_sampling.png"),bbox_inches="tight")
 
