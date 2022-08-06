@@ -18,97 +18,6 @@ plt.rc("ytick", labelsize=SMALL_SIZE)  # fontsize of the tick labels
 plt.rc("legend", fontsize=SMALL_SIZE)  # legend fontsize
 plt.rc("figure", titlesize=BIGGER_SIZE)  # fontsize of the figure title
 
-def plot_sample(station, t, u, intervals=4, samples=100, criterion=1):
-    
-    u_gradient, u_intercept, _, _, _ = stats.linregress(t, u)
-    sample_fit,sample_gradient,sample_intercept=[],[],[]
-    for _ in range(samples):
-        sample = sample_data(data[station],intervals)
-        gradient, intercept, _, _, _ = stats.linregress(
-            sample["year"], sample["U"]
-        )
-        sample_fit.append(t*gradient + intercept)
-        sample_gradient.append(gradient)
-        sample_intercept.append(intercept)
-    
-    alpha=0.99
-    mean,std,ci_lower,ci_upper = base_stats(
-        sample_fit,
-        samples,
-        alpha=alpha,
-        distribution=0
-    )
-
-    dif=np.abs(sample_gradient-u_gradient)
-    max = np.argmax(dif)
-    N_above = np.sum(dif>criterion)
-
-    plt.figure(figsize=(14,8))
-    plt.title(f"{station} {N_above/len(sample_gradient):.2f}% samples above gradient difference criterion of {criterion:.1f} mm/yr")
-    plt.plot(
-        t,
-        u,
-        ".",
-        markersize=2,
-        linewidth=0.25,
-        color="lightsalmon",
-        label="Data points",
-    )
-    plt.plot(
-        t,
-        mean,
-        "--",
-        linewidth=1.5,
-        color="indigo",
-        label=f"Sample mean ({samples} samples)"
-    )
-    plt.plot(
-        t,
-        ci_lower,
-        "--",
-        linewidth=1,
-        color="darkorchid",
-        label=f"Gaussian {100*alpha:.2f}% confidence interval"
-    )
-    plt.plot(
-        t,
-        ci_upper,
-        "--",
-        linewidth=1,
-        color="darkorchid",
-    )
-    plt.plot(
-        t,
-        mean-2*std,
-        "--",
-        linewidth=1,
-        color="orchid",
-        label="2*sample std"
-    )
-    plt.plot(
-        t,
-        mean+2*std,
-        "--",
-        linewidth=1,
-        color="orchid",
-    )
-    plt.plot(
-        t,
-        sample_fit[max],
-        color="lightskyblue",
-        label="Biggest outlier sample"
-    )
-    
-
-    plt.grid()
-    plt.xlabel("Time [year]", fontsize=12)
-    plt.ylabel("Up [mm]", fontsize=12)
-    plt.xlim([2002, 2020])
-    plt.ylim([-20, 40])
-    plt.legend(loc="lower right")
-    print(f"{station} {N_above/len(sample_gradient):.2f}% above criterion of {criterion:.1f} mm/yr")
-
-
 def plot_up(station, t, u, noise_func, N=1):
 
     silent = u - noise_func(t)
@@ -256,36 +165,11 @@ def find_avg_signal(data, stations):
         t, ts_avg, bounds_error=False, fill_value=(ts_avg[0], ts_avg[-1])
     )
 
-def sample_data(data, N):
-    """
-    Opdel data i N tidsintervaller og sample et punkt fra hvert interval
-    """
-    sample = []
-    for subdata in np.array_split(data,N):
-        sample.append(np.random.choice(subdata))
-    return np.array(sample)
-
-def base_stats(fit, N_samples, alpha=0.95, distribution=0):
-    fit = np.array(fit)
-    mean = fit.mean(axis=0)
-    std = fit.std(axis=0)
-
-    if distribution == 0: # Gaussian
-        t = stats.t.ppf(1-alpha/2, N_samples)
-        ci_lower = mean - t*std/np.sqrt(N_samples)
-        ci_upper = mean + t*std/np.sqrt(N_samples)
-    elif distribution == 1: # Laplacian
-        median = np.median(fit,axis=0)
-        decay = np.mean(np.abs(fit-median))
-        exp = stats.expon.ppf(1-alpha,N_samples)
-        ci_lower = median-((N_samples-1)*decay / exp)
-        ci_upper = median+((N_samples-1)*decay / exp)
-    return mean,std,ci_lower,ci_upper
 
 if __name__ == "__main__":
 
     files = Path(r"data/GPS").glob("*.txt")
-    Path("out").mkdir(exist_ok=True)
+    Path("out/gnssts").mkdir(exist_ok=True)
     data = {}
     for filename in files:
         ts, station = load_data(filename)
@@ -295,7 +179,7 @@ if __name__ == "__main__":
 
     # save timeseries
     for station in data:
-        with open(Path("out") / Path(f"{station}.txt"), 'w') as f:
+        with open(Path("out/gnssts") / Path(f"{station}.txt"), 'w') as f:
             f.write("% site name BUDP    component: U\n")
             f.write("% Time [Year],    Uplift [mm]\n")
             for d in data[station]:
@@ -307,10 +191,6 @@ if __name__ == "__main__":
         u = data[station]["U"]
         t = data[station]["year"]
         plot_up(station, t, u, noise_func, N=30)
-        plt.savefig(Path("out") / Path(f"{station}.png"), bbox_inches="tight")
-
-        plot_sample(station, t, u, intervals=4, samples=1000, criterion=1)
-        plt.savefig(Path("out") / Path(f"{station}_sampling.png"), bbox_inches="tight")
-
+        plt.savefig(Path("out/gnssts") / Path(f"{station}.png"), bbox_inches="tight")
 
 
