@@ -3,12 +3,7 @@ import numpy as np
 import matplotlib.pyplot as plt
 import matplotlib as mpl
 from scipy import stats
-from scipy import interpolate
-
-SMALL_SIZE = 8
-MEDIUM_SIZE = 10
-BIGGER_SIZE = 12
-
+from gnssts import SMALL_SIZE,BIGGER_SIZE,load_data
 
 plt.rc("font", size=SMALL_SIZE)  # controls default text sizes
 plt.rc("axes", titlesize=SMALL_SIZE)  # fontsize of the axes title
@@ -18,15 +13,32 @@ plt.rc("ytick", labelsize=SMALL_SIZE)  # fontsize of the tick labels
 plt.rc("legend", fontsize=SMALL_SIZE)  # legend fontsize
 plt.rc("figure", titlesize=BIGGER_SIZE)  # fontsize of the figure title
 
-def plot_sample(station, t, u, intervals=4, samples=100, criterion=1, alpha=0.05):
-    
+def plot_sample(
+        station:str,
+        t:np.array,
+        u:np.array,
+        intervals:int=4,
+        samples:int=100,
+        criterion:float=1.0,
+        alpha:float=0.05,
+        state:str="u"
+    ):
+    """
+    Sample the data and plot the mean of the samples with confidence interval
+    and the largest outlier of the samples.
+    """
     u_gradient, _, _, _, _ = stats.linregress(t, u)
     sample_fit,sample_gradient=[],[]
     for _ in range(samples):
         sample = sample_data(data[station],intervals)
-        gradient, intercept, _, _, _ = stats.linregress(
-            sample["year"], sample["U"]
-        )
+        if state == "e":
+            gradient, intercept, _, _, _ = stats.linregress(
+                sample["year"], sample["U_e"]
+            )
+        else:
+            gradient, intercept, _, _, _ = stats.linregress(
+                sample["year"], sample["U"]
+            )
         sample_fit.append(t*gradient + intercept)
         sample_gradient.append(gradient)
     
@@ -41,7 +53,7 @@ def plot_sample(station, t, u, intervals=4, samples=100, criterion=1, alpha=0.05
     N_above = np.sum(dif>criterion)
 
     plt.figure(figsize=(14,8))
-    plt.title(f"{station} {N_above/len(sample_gradient):.2f}% samples above gradient difference criterion of {criterion:.1f} mm/yr")
+    plt.title(f"{station} {N_above/len(sample_gradient):.2f}% samples above gradient difference criterion of {criterion:.2f} mm/yr")
     plt.plot(
         t,
         u,
@@ -76,21 +88,6 @@ def plot_sample(station, t, u, intervals=4, samples=100, criterion=1, alpha=0.05
     )
     plt.plot(
         t,
-        mean-2*std,
-        "--",
-        linewidth=1,
-        color="orchid",
-        label="2*sample std"
-    )
-    plt.plot(
-        t,
-        mean+2*std,
-        "--",
-        linewidth=1,
-        color="orchid",
-    )
-    plt.plot(
-        t,
         sample_fit[max],
         color="lightskyblue",
         label="Biggest outlier sample"
@@ -100,14 +97,26 @@ def plot_sample(station, t, u, intervals=4, samples=100, criterion=1, alpha=0.05
     plt.grid()
     plt.xlabel("Time [year]", fontsize=12)
     plt.ylabel("Up [mm]", fontsize=12)
+    if state == "e": plt.ylabel("Easting [mm]", fontsize=12)
     plt.xlim([2002, 2020])
     plt.ylim([-20, 40])
+    if state == "e": plt.ylim([2,6])
     plt.legend(loc="lower right")
-    print(f"{station} {N_above/len(sample_gradient):.2f}% above criterion of {criterion:.1f} mm/yr")
+    print(f"{station} {N_above/len(sample_gradient):.2f}% above criterion of {criterion:.2f} mm/yr")
 
 
-def plot_intervals(station, t, u, intervals=np.arange(4,11,dtype=int), samples=100, alpha=0.95):
-    
+def plot_intervals(
+        station:str,
+        t:np.array,
+        u:np.array,
+        intervals:np.array=np.arange(4,11,dtype=int),
+        samples:int=100,
+        alpha:float=0.05
+    ):
+    """
+    Sample different sized samples and plot (1-alpha)% confidence interval
+    for each sample size around the mean
+    """
     plt.figure(figsize=(14,8))
     plt.plot(
             t,
@@ -119,7 +128,6 @@ def plot_intervals(station, t, u, intervals=np.arange(4,11,dtype=int), samples=1
             label="Data points",
         )
     for intv in intervals:
-        u_gradient, _, _, _, _ = stats.linregress(t, u)
         sample_fit,sample_gradient=[],[]
         for _ in range(samples):
             sample = sample_data(data[station],intv)
@@ -143,7 +151,7 @@ def plot_intervals(station, t, u, intervals=np.arange(4,11,dtype=int), samples=1
             "--",
             linewidth=1,
             color=cicol,
-            label=f"2*standard deviation at {intv} intervals"
+            label=f"Gaussian {100*(1-alpha):.2f}% confidence interval at {intv} intervals"
         )
         plt.plot(
             t,
@@ -172,44 +180,19 @@ def plot_intervals(station, t, u, intervals=np.arange(4,11,dtype=int), samples=1
     print(f"{station} done with multiple intervals")
 
 
-def load_data(filename: Path):
-
-    with open(filename, "r") as f:
-        timeseries = f.readlines()
-
-    try: # Is the data in NEU format?
-        ts = np.loadtxt(
-            timeseries,
-            comments="%",
-            dtype={
-                "names": ("year", "N", "N_e", "E", "E_e", "U", "U_e"),
-                "formats": ("f4", "f4", "f4", "f4", "f4", "f4", "f4"),
-            },
-        )
-    except (IndexError, ValueError): # ... or in year/up format?
-        ts = np.loadtxt(
-            timeseries,
-            comments="%",
-            dtype={"names": ("year", "U", "U_e"), "formats": ("f4", "f4", "f4")},
-        )
-
-    gradient, intercept, _, _, _ = stats.linregress(
-        ts["year"], ts["U"]
-    )
-    offset = gradient * ts["year"][0] + intercept
-    ts["U"] = ts["U"] - offset
-    return ts, filename.stem[0:4]
-
-def sample_data(data, N):
+def sample_data(data:np.array, N:int):
     """
-    Opdel data i N tidsintervaller og sample et punkt fra hvert interval
+    Separate data in N time intervals and sample a point from each interval
     """
     sample = []
     for subdata in np.array_split(data,N):
         sample.append(np.random.choice(subdata))
     return np.array(sample)
 
-def base_stats(fit, N_samples, alpha=0.05):
+def base_stats(fit:list, N_samples:int, alpha:float=0.05):
+    """
+    Compute the mean, std and confidence interval for the sample fit
+    """
     fit = np.array(fit)
     mean = fit.mean(axis=0)
     std = fit.std(axis=0)
@@ -220,7 +203,7 @@ def base_stats(fit, N_samples, alpha=0.05):
 
     return mean,std,ci_lower,ci_upper
 
-def weeklify(t,u):
+def weeklify(t:np.array,u:np.array,ue:np.array):
     """
     return weekly average of time series
     """
@@ -228,17 +211,21 @@ def weeklify(t,u):
     if excess > 0:
         u = u[:-excess]
         t = t[:-excess]
+        ue = ue[:-excess]
+
     u = np.mean(u.reshape(-1,7),axis=1)
+    ue = np.mean(ue.reshape(-1,7),axis=1)
     t = np.mean(t.reshape(-1,7),axis=1)
-    return t,u
+    return t,u,ue
 
 
 
 if __name__ == "__main__":
 
     files = Path(r"data/GPS").glob("*.txt")
-    Path("out/sampling/single").mkdir(exist_ok=True)
-    Path("out/sampling/multiple").mkdir(exist_ok=True)
+    Path("out/sampling/single").mkdir(exist_ok=True,parents=True)
+    Path("out/sampling/multiple").mkdir(exist_ok=True,parents=True)
+    Path("out/sampling/easting").mkdir(exist_ok=True,parents=True)
     data = {}
     for filename in files:
         ts, station = load_data(filename)
@@ -250,12 +237,18 @@ if __name__ == "__main__":
     for station in data:
         u = data[station]["U"]
         t = data[station]["year"]
+        ue = data[station]["U_e"]
 
-        t,u = weeklify(t,u)
+        t,u,ue = weeklify(t,u,ue)
 
+        # Plot sample with "intervals" sample size sampled "samples" times
         plot_sample(station, t, u, intervals=4, samples=1000, criterion=1, alpha=0.01)
         plt.savefig(Path("out/sampling/single") / Path(f"{station}_sampling.png"), bbox_inches="tight")
 
-        plot_intervals(station, t, u, intervals=np.arange(3,16,dtype=int), samples=1000, alpha=0.01)
+        # Plot samples with multiple sample sizes
+        plot_intervals(station, t, u, intervals=np.arange(3,16,dtype=int), samples=1000, alpha=0.05)
         plt.savefig(Path("out/sampling/multiple") / Path(f"{station}_variable_interval_sampling.png"),bbox_inches="tight")
 
+        # Same as first plot for easting instead of uplift
+        plot_sample(station, t, ue, intervals=4, samples=1000, criterion=.01, alpha=0.01,state="e")
+        plt.savefig(Path("out/sampling/easting") / Path(f"{station}_sampling_Ue.png"), bbox_inches="tight")

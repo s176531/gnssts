@@ -96,6 +96,9 @@ def plot_up(station, t, u, noise_func, N=1):
 
 
 def load_data(filename: Path):
+    """
+    Load the data in convenient format
+    """
 
     with open(filename, "r") as f:
         timeseries = f.readlines()
@@ -116,7 +119,7 @@ def load_data(filename: Path):
             dtype={"names": ("year", "U", "U_e"), "formats": ("f4", "f4", "f4")},
         )
 
-    gradient, intercept, r_value, p_value, std_err = stats.linregress(
+    gradient, intercept, _, _, _ = stats.linregress(
         ts["year"], ts["U"]
     )
     offset = gradient * ts["year"][0] + intercept
