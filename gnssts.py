@@ -97,7 +97,9 @@ def plot_up(station:str, t:np.array, u:np.array, noise_func, N:int=1):
 
 def load_data(filename: Path):
     """
-    Load the data into a numpy array
+    Load the data into a numpy array consisting of tuples.
+    Each tuple contains: (decimal year,up,easting) of a reading from a station.
+    Return the array as well as a 4 letter identifier of the station.
     """
 
     with open(filename, "r") as f:
