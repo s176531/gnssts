@@ -18,7 +18,7 @@ plt.rc("ytick", labelsize=SMALL_SIZE)  # fontsize of the tick labels
 plt.rc("legend", fontsize=SMALL_SIZE)  # legend fontsize
 plt.rc("figure", titlesize=BIGGER_SIZE)  # fontsize of the figure title
 
-def plot_up(station, t, u, noise_func, N=1):
+def plot_up(station:str, t:np.array, u:np.array, noise_func, N:int=1):
 
     silent = u - noise_func(t)
 
@@ -97,7 +97,7 @@ def plot_up(station, t, u, noise_func, N=1):
 
 def load_data(filename: Path):
     """
-    Load the data in convenient format
+    Load the data into a numpy array
     """
 
     with open(filename, "r") as f:
@@ -127,14 +127,14 @@ def load_data(filename: Path):
     return ts, filename.stem[0:4]
 
 
-def detrend(t, u):
+def detrend(t:np.array, u:np.array):
     gradient, intercept, r_value, p_value, std_err = stats.linregress(t, u)
     u_trend = gradient * t + intercept
 
     return u - u_trend
 
 
-def find_avg_signal(data, stations):
+def find_avg_signal(data:dict, stations:tuple):
     """
     1. Interpoler rå uplift signal, så datapunkter falder sammen i alle tidsserier (samme tidspunkter)
     2. Detrend uplift-signaler

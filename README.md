@@ -51,4 +51,6 @@ Repositoriet kommer med data fra 2019 som standard. Data fra 2019 befinder sig i
 mappen `data/GPS/` og kan blot overskrives med filer i samme format hvis opdaterede
 tidsserier skal filtreres og plottes.
 
+Som set i plot 2, ser det ud til at ved en sample size større 7-8 er der ikke længere større ændringer i 99% konfidensintervallet, mens det for et 95% konfidensinterval er ved sample size 5-7. Derfor anbefales det som absolut minimum at anvende 5 målinger til fremtidige beregninger, mens en større sikkerhed vil opnås ved mere end 7 målinger pr. station.
+
 

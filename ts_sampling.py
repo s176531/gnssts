@@ -53,7 +53,7 @@ def plot_sample(
     N_above = np.sum(dif>criterion)
 
     plt.figure(figsize=(14,8))
-    plt.title(f"{station} {N_above/len(sample_gradient):.2f}% samples above gradient difference criterion of {criterion:.2f} mm/yr")
+    plt.title(f"{station} {N_above/len(sample_gradient):.2f}% samples above gradient difference criterion of {criterion:.2f} mm/yr with sample size {intervals}")
     plt.plot(
         t,
         u,
@@ -151,7 +151,7 @@ def plot_intervals(
             "--",
             linewidth=1,
             color=cicol,
-            label=f"Gaussian {100*(1-alpha):.2f}% confidence interval at {intv} intervals"
+            label=f"Gaussian {100*(1-alpha):.2f}% confidence interval at sample size {intv}"
         )
         plt.plot(
             t,
@@ -242,11 +242,11 @@ if __name__ == "__main__":
         t,u,ue = weeklify(t,u,ue)
 
         # Plot sample with "intervals" sample size sampled "samples" times
-        plot_sample(station, t, u, intervals=4, samples=1000, criterion=1, alpha=0.01)
+        plot_sample(station, t, u, intervals=10, samples=1000, criterion=1, alpha=0.01)
         plt.savefig(Path("out/sampling/single") / Path(f"{station}_sampling.png"), bbox_inches="tight")
 
         # Plot samples with multiple sample sizes
-        plot_intervals(station, t, u, intervals=np.arange(3,16,dtype=int), samples=1000, alpha=0.05)
+        plot_intervals(station, t, u, intervals=np.arange(3,13,dtype=int), samples=1000, alpha=0.05)
         plt.savefig(Path("out/sampling/multiple") / Path(f"{station}_variable_interval_sampling.png"),bbox_inches="tight")
 
         # Same as first plot for easting instead of uplift
