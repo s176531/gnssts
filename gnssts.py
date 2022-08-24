@@ -18,7 +18,8 @@ plt.rc("ytick", labelsize=MEDIUM_SIZE)  # fontsize of the tick labels
 plt.rc("legend", fontsize=SMALL_SIZE)  # legend fontsize
 plt.rc("figure", titlesize=BIGGER_SIZE)  # fontsize of the figure title
 
-def plot_up(station:str, t:np.array, u:np.array, noise_func, N:int=1):
+
+def plot_up(station: str, t: np.array, u: np.array, noise_func, N: int = 1):
 
     silent = u - noise_func(t)
 
@@ -26,13 +27,17 @@ def plot_up(station:str, t:np.array, u:np.array, noise_func, N:int=1):
     silent_moving_avg = np.convolve(silent, np.ones((N,)) / N, mode="same")
 
     u_gradient, u_intercept, u_r, u_p, u_stderr = stats.linregress(t, u)
-    silent_gradient, silent_intercept, silent_r, silent_p, silent_stderr = stats.linregress(
-        t, silent
-    )
+    (
+        silent_gradient,
+        silent_intercept,
+        silent_r,
+        silent_p,
+        silent_stderr,
+    ) = stats.linregress(t, silent)
     u_fit = u_gradient * t + u_intercept
     silent_fit = silent_gradient * t + silent_intercept
 
-    plt.figure(figsize=(14,8))
+    plt.figure(figsize=(14, 8))
     plt.title(station)
     plt.plot(
         t,
@@ -105,7 +110,7 @@ def load_data(filename: Path):
     with open(filename, "r") as f:
         timeseries = f.readlines()
 
-    try: # Is the data in NEU format?
+    try:  # Is the data in NEU format?
         ts = np.loadtxt(
             timeseries,
             comments="%",
@@ -114,29 +119,27 @@ def load_data(filename: Path):
                 "formats": ("f4", "f4", "f4", "f4", "f4", "f4", "f4"),
             },
         )
-    except (IndexError, ValueError): # ... or in year/up format?
+    except (IndexError, ValueError):  # ... or in year/up format?
         ts = np.loadtxt(
             timeseries,
             comments="%",
             dtype={"names": ("year", "U", "U_e"), "formats": ("f4", "f4", "f4")},
         )
 
-    gradient, intercept, _, _, _ = stats.linregress(
-        ts["year"], ts["U"]
-    )
+    gradient, intercept, _, _, _ = stats.linregress(ts["year"], ts["U"])
     offset = gradient * ts["year"][0] + intercept
     ts["U"] = ts["U"] - offset
     return ts, filename.stem[0:4]
 
 
-def detrend(t:np.array, u:np.array):
+def detrend(t: np.array, u: np.array):
     gradient, intercept, r_value, p_value, std_err = stats.linregress(t, u)
     u_trend = gradient * t + intercept
 
     return u - u_trend
 
 
-def find_avg_signal(data:dict, stations:tuple):
+def find_avg_signal(data: dict, stations: tuple):
     """
     1. Interpoler rå uplift signal, så datapunkter falder sammen i alle tidsserier (samme tidspunkter)
     2. Detrend uplift-signaler
@@ -184,18 +187,16 @@ if __name__ == "__main__":
 
     # save timeseries
     for station in data:
-        with open(Path("out/gnssts") / Path(f"{station}.txt"), 'w') as f:
+        with open(Path("out/gnssts") / Path(f"{station}.txt"), "w") as f:
             f.write("% site name BUDP    component: U\n")
             f.write("% Time [Year],    Uplift [mm]\n")
             for d in data[station]:
                 f.write(f"{d['year']:.8f}    {d['U']-noise_func(d['year']): .3f}\n")
-    
+
     # plot timeseries
-    mpl.rc('figure', max_open_warning = 0)
+    mpl.rc("figure", max_open_warning=0)
     for station in data:
         u = data[station]["U"]
         t = data[station]["year"]
         plot_up(station, t, u, noise_func, N=30)
         plt.savefig(Path("out/gnssts") / Path(f"{station}.png"), bbox_inches="tight")
-
-
