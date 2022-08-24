@@ -3,13 +3,13 @@ import numpy as np
 import matplotlib.pyplot as plt
 import matplotlib as mpl
 from scipy import stats
-from gnssts import SMALL_SIZE,BIGGER_SIZE,load_data
+from gnssts import SMALL_SIZE,MEDIUM_SIZE,BIGGER_SIZE,load_data
 
-plt.rc("font", size=SMALL_SIZE)  # controls default text sizes
-plt.rc("axes", titlesize=SMALL_SIZE)  # fontsize of the axes title
-plt.rc("axes", labelsize=SMALL_SIZE)  # fontsize of the x and y labels
-plt.rc("xtick", labelsize=SMALL_SIZE)  # fontsize of the tick labels
-plt.rc("ytick", labelsize=SMALL_SIZE)  # fontsize of the tick labels
+plt.rc("font", size=MEDIUM_SIZE)  # controls default text sizes
+plt.rc("axes", titlesize=MEDIUM_SIZE)  # fontsize of the axes title
+plt.rc("axes", labelsize=MEDIUM_SIZE)  # fontsize of the x and y labels
+plt.rc("xtick", labelsize=MEDIUM_SIZE)  # fontsize of the tick labels
+plt.rc("ytick", labelsize=MEDIUM_SIZE)  # fontsize of the tick labels
 plt.rc("legend", fontsize=SMALL_SIZE)  # legend fontsize
 plt.rc("figure", titlesize=BIGGER_SIZE)  # fontsize of the figure title
 
@@ -28,19 +28,22 @@ def plot_sample(
     and the largest outlier of the samples.
     """
     u_gradient, _, _, _, _ = stats.linregress(t, u)
-    sample_fit,sample_gradient=[],[]
+    sample_fit,sample_gradient,samplelist,t_samples=[],[],[],[]
     for _ in range(samples):
         sample = sample_data(data[station],intervals)
         if state == "e":
             gradient, intercept, _, _, _ = stats.linregress(
                 sample["year"], sample["U_e"]
             )
+            samplelist.append(sample["U_e"])
         else:
             gradient, intercept, _, _, _ = stats.linregress(
                 sample["year"], sample["U"]
             )
+            samplelist.append(sample["U"])
         sample_fit.append(t*gradient + intercept)
         sample_gradient.append(gradient)
+        t_samples.append(sample["year"])
     
     mean,std,ci_lower,ci_upper = base_stats(
         sample_fit,
@@ -54,6 +57,13 @@ def plot_sample(
 
     plt.figure(figsize=(14,8))
     plt.title(f"{station} {N_above/len(sample_gradient):.2f}% samples above gradient difference criterion of {criterion:.2f} mm/yr with sample size {intervals}")
+    plt.scatter(
+        t_samples[max],
+        samplelist[max],
+        color="darkturquoise",
+        s=15,
+        label="Biggest outlier sample points"
+    )
     plt.plot(
         t,
         u,
@@ -90,7 +100,7 @@ def plot_sample(
         t,
         sample_fit[max],
         color="lightskyblue",
-        label="Biggest outlier sample"
+        label="Biggest outlier sample fit"
     )
     
 
@@ -240,13 +250,13 @@ if __name__ == "__main__":
         ue = data[station]["U_e"]
 
         t,u,ue = weeklify(t,u,ue)
-
+        
         # Plot sample with "intervals" sample size sampled "samples" times
-        plot_sample(station, t, u, intervals=10, samples=1000, criterion=1, alpha=0.01)
+        plot_sample(station, t, u, intervals=4, samples=1000, criterion=1, alpha=0.01)
         plt.savefig(Path("out/sampling/single") / Path(f"{station}_sampling.png"), bbox_inches="tight")
 
         # Plot samples with multiple sample sizes
-        plot_intervals(station, t, u, intervals=np.arange(3,13,dtype=int), samples=1000, alpha=0.05)
+        plot_intervals(station, t, u, intervals=np.arange(3,13,dtype=int), samples=1000, alpha=0.01)
         plt.savefig(Path("out/sampling/multiple") / Path(f"{station}_variable_interval_sampling.png"),bbox_inches="tight")
 
         # Same as first plot for easting instead of uplift
