@@ -7,7 +7,7 @@ Filtrer og plot tidsserier fra GNSS danske permanente stationer.
 Klon git repository og hop i repositoriet:
 
 ```
-$ git clone https://github.com/Kortforsyningen/gnssts.git
+$ git clone https://github.com/SDFIdk/gnssts.git
 $ cd gnssts
 ```
 
